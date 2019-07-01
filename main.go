@@ -1,26 +1,34 @@
 package main
 
 import (
+	"flag"
 	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
-const (
-	address = "0.0.0.0:23400"
+var (
+	configFlag = flag.String("config", "", "path to config file")
 )
 
 func main() {
+	flag.Parse()
 	logger, _ := zap.NewDevelopment()
 
-	listener, err := net.Listen("tcp", address)
+	service, err := NewRegBox(*configFlag)
 	if err != nil {
-		logger.Fatal("Can not listen", zap.String("address", address), zap.String("error", err.Error()))
+		logger.Fatal("Can not load config", zap.String("path", *configFlag), zap.String("error", err.Error()))
 	}
-	var s = grpc.NewServer()
-	RegisterRegBoxServer(s, &RegBox{})
-	err = s.Serve(listener)
+
+	listener, err := net.Listen("tcp", service.Address)
+	if err != nil {
+		logger.Fatal("Can not listen", zap.String("address", service.Address), zap.String("error", err.Error()))
+	}
+
+	var server = grpc.NewServer()
+	RegisterRegBoxServer(server, service)
+	err = server.Serve(listener)
 	if err != nil {
 		logger.Fatal("Can not serve", zap.String("error", err.Error()))
 	}

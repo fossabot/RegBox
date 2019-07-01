@@ -1,0 +1,11 @@
+#compdef reg-box
+
+_regbox_args=(
+    "-config[path to config file]:config:_files"
+)
+
+_regbox() {
+    _arguments $_regbox_args
+}
+
+_regbox
