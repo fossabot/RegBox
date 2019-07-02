@@ -1,4 +1,4 @@
-#compdef reg-box
+#compdef regbox
 
 _regbox_args=(
     "-config[path to config file]:config:_files"

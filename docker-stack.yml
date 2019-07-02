@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+
+  db:
+    image: mongo:4.0
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: P@ssw0rd
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  mongo-data:
+

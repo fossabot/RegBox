@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -72,5 +73,10 @@ func (s *RegBox) GenerateHash(password string) (hash []byte, salt []byte, err er
 }
 
 func (s *RegBox) Register(ctx context.Context, in *RegisterRequest) (*RegisterResponse, error) {
+	hash, salt, err := s.GenerateHash(in.GetPassword())
+	if err != nil {
+		return &RegisterResponse{Successful: false}, nil
+	}
+	log.Printf("%x\t%x\n", hash, salt)
 	return &RegisterResponse{Successful: true}, nil
 }
