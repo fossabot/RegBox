@@ -1,14 +1,2 @@
-## Argon2 config
-# Memory volume, MiBs
-memory: 64
-# Number of iterations
-iterations: 10
-# Number of parallel threads
-parallelism: 4
-# Length of salt, bytes
-salt_length: 16
-# Length of out key, bytes
-key_length: 32
-
 ## Config of RPC-server
 address: 0.0.0.0:23400

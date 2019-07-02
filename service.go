@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -29,11 +30,11 @@ func VerifyConfigPath(filename string) error {
 }
 
 type RegBox struct {
-	Memory      uint32 `yaml:"memory"`
-	Iterations  uint32 `yaml:"iterations"`
-	Parallelism uint8  `yaml:"parallelism"`
-	SaltLength  uint32 `yaml:"salt_length"`
-	KeyLength   uint32 `yaml:"key_length"`
+	Memory      uint32
+	Iterations  uint32
+	Parallelism uint8
+	SaltLength  uint32
+	KeyLength   uint32
 	Address     string `yaml:"address"`
 }
 
@@ -42,12 +43,18 @@ func NewRegBox(filename string) (service *RegBox, err error) {
 	if err != nil {
 		return nil, err
 	}
-	rawConfig, err := ioutil.ReadFile(filename)
+	config, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	service = new(RegBox)
-	err = yaml.Unmarshal(rawConfig, service)
+	service = &RegBox{
+		Memory:      64 * 1024, // 64 Mib
+		Iterations:  10,
+		Parallelism: uint8(runtime.NumCPU()),
+		SaltLength:  16,
+		KeyLength:   32,
+	}
+	err = yaml.Unmarshal(config, service)
 	if err != nil {
 		return nil, err
 	}
