@@ -21,3 +21,6 @@ cert:
 		-newkey rsa:4096 -keyout assets/regbox.key \
 		-out assets/regbox.crt -nodes -days 365 \
 		-config tools/req.conf -extensions v3_req
+
+image-db:
+	docker build -t postgres-twchd .

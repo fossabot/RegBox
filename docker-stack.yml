@@ -2,8 +2,8 @@ version: '3'
 
 services:
 
-  db:
-    image: mongo:4.0
+  mongo:
+    image: mongo-regbox
     ports:
       - 27017:27017
     volumes:

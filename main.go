@@ -1,26 +1,36 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"net"
 
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 var (
-	configFlag = flag.String("config", "", "path to config file")
+	logger         *zap.Logger
+	collection     *mongo.Collection
+	initCollection = make(chan bool)
+	err            error
 )
 
 func main() {
-	flag.Parse()
-	logger, _ := zap.NewDevelopment()
+	logger, _ = zap.NewDevelopment()
 
-	service, err := NewRegBox(*configFlag)
-	if err != nil {
-		logger.Fatal("Can not load config", zap.String("path", *configFlag), zap.String("error", err.Error()))
-	}
+	go func() {
+		collection, err = GetCollection()
+		if err != nil {
+			logger.Fatal("Can not create connection to mongodb", zap.String("err", err.Error()))
+		}
+		initCollection <- true
+		logger.Info("Connected to mongodb")
+	}()
+
+	var service = NewRegBox()
 
 	listener, err := net.Listen("tcp", service.Address)
 	if err != nil {
@@ -34,8 +44,24 @@ func main() {
 
 	var server = grpc.NewServer(grpc.Creds(creds))
 	RegisterRegBoxServer(server, service)
+	<-initCollection
 	err = server.Serve(listener)
 	if err != nil {
 		logger.Fatal("Can not serve", zap.String("error", err.Error()))
 	}
+}
+
+func GetCollection() (*mongo.Collection, error) {
+	client, err := mongo.Connect(
+		context.Background(),
+		options.Client().SetHosts([]string{"127.0.0.1:27017"}).
+			SetAuth(options.Credential{
+				AuthSource: "regbox",
+				Username:   "regbox",
+				Password:   "P@ssw0rd",
+			}))
+	if err != nil {
+		return nil, err
+	}
+	return client.Database("regbox").Collection("creds"), nil
 }

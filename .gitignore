@@ -1,3 +1,4 @@
 *.pb.*
 bin/
 assets/*.key
+.vscode/
