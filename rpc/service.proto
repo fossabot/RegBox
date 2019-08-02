@@ -1,13 +1,16 @@
 syntax = "proto3";
 option go_package = "main";
 
-service RegBox { rpc Register(RegisterRequest) returns (RegisterResponse); }
+service RegBox {
+    rpc Register(AcccountRequest) returns (Response);
+    rpc Authenticate(AcccountRequest) returns (Response);
+}
 
-message RegisterRequest {
+message AcccountRequest {
     string login = 1;
     string password = 2;
 }
 
-message RegisterResponse {
-    bool successful = 1;
+message Response {
+    string error = 1;
 }

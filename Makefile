@@ -1,10 +1,10 @@
 PROJECTNAME	:=	$(shell basename "$(PWD)")
 GOBASE		:=	$(shell pwd)
 GOBIN		:=	$(GOBASE)/bin
-GOSOURCE	:=	$(wildcard *.go)
+GOSOURCE	:=	$(filter-out $(wildcard *_generate.go),$(wildcard *.go))
 LDFLAGS		:=	-ldflags "-s -w"
 
-.PHONY: rpc build clean cert
+.PHONY: rpc build clean cert generate image
 
 build: rpc
 	go build $(LDFLAGS) -o $(GOBIN)/$(PROJECTNAME) $(GOSOURCE)
@@ -22,5 +22,8 @@ cert:
 		-out assets/regbox.crt -nodes -days 365 \
 		-config tools/req.conf -extensions v3_req
 
-image-db:
+image:
 	docker build -t postgres-twchd .
+
+generate: assets
+	go run assets_generate.go

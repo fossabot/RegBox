@@ -2,3 +2,4 @@
 bin/
 assets/*.key
 .vscode/
+assets_vfsdata.go
