@@ -1,0 +1,18 @@
+syntax = "proto3";
+package awesome;
+option go_package = "pb";
+
+service RegBox {
+    rpc Register(AcccountRequest) returns (AcccountResponse);
+    rpc Authenticate(AcccountRequest) returns (AcccountResponse);
+}
+
+message AcccountRequest {
+    string login = 1;
+    string password = 2;
+}
+
+message AcccountResponse {
+    string login = 1;
+    string error = 2;
+}

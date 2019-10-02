@@ -1,5 +1,4 @@
-*.pb.*
 bin/
-assets/*.key
+**/*.pb.go
+**/*-packr.go
 .vscode/
-assets_vfsdata.go

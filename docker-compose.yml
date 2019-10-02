@@ -1,7 +1,6 @@
 version: '3'
 
 services:
-
   mongo:
     image: mongo-regbox
     ports:
@@ -11,10 +10,6 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: P@ssw0rd
-    deploy:
-      mode: global
-      restart_policy:
-        condition: on-failure
 
 volumes:
   mongo-data:

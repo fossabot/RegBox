@@ -7,13 +7,14 @@ import (
 	"errors"
 	"io"
 
+	"github.com/Aded175/RegBox/pb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/argon2"
 )
 
-type RegBox struct {
+type RegBoxServer struct {
 	Memory      uint32
 	Iterations  uint32
 	Parallelism uint8
@@ -23,7 +24,7 @@ type RegBox struct {
 	Collection  *mongo.Collection
 }
 
-func NewRegBox() (*RegBox, error) {
+func NewRegBoxServer() (*RegBoxServer, error) {
 	conn, err := mongo.Connect(
 		context.Background(),
 		options.Client().SetHosts([]string{"127.0.0.1:27017"}).
@@ -35,7 +36,7 @@ func NewRegBox() (*RegBox, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RegBox{
+	return &RegBoxServer{
 		Memory:      64 * 1024, // 64 Mib
 		Iterations:  10,
 		Parallelism: 4,
@@ -55,19 +56,25 @@ func generateRandomBytes(n uint32) ([]byte, error) {
 	return b, nil
 }
 
-func (s *RegBox) GenerateHash(password []byte, salt []byte) []byte {
+func (s *RegBoxServer) GenerateHash(password []byte, salt []byte) []byte {
 	return argon2.IDKey(password, salt, s.Iterations, s.Memory, s.Parallelism, s.KeyLength)
 }
 
-func (s *RegBox) Register(ctx context.Context, in *AcccountRequest) (*Response, error) {
+func (s *RegBoxServer) Register(ctx context.Context, in *pb.AcccountRequest) (*pb.AcccountResponse, error) {
 	var login = []byte(in.GetLogin())
 	if err := s.Check(login); err != nil {
-		return &Response{Error: err.Error()}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: err.Error(),
+		}, nil
 	}
 
 	salt, err := generateRandomBytes(s.SaltLength)
 	if err != nil {
-		return &Response{Error: err.Error()}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: err.Error(),
+		}, nil
 	}
 	var hash = s.GenerateHash([]byte(in.GetPassword()), salt)
 
@@ -78,9 +85,15 @@ func (s *RegBox) Register(ctx context.Context, in *AcccountRequest) (*Response, 
 			"salt":   salt,
 		})
 	if err != nil {
-		return &Response{Error: err.Error()}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: err.Error(),
+		}, nil
 	}
-	return &Response{}, nil
+	return &pb.AcccountResponse{
+		Login: in.GetLogin(),
+		Error: "",
+	}, nil
 }
 
 var (
@@ -88,7 +101,7 @@ var (
 	ErrDupLogins = errors.New("Duplicated logins")
 )
 
-func (s *RegBox) Check(login []byte) error {
+func (s *RegBoxServer) Check(login []byte) error {
 	cursor, err := s.Collection.Aggregate(context.Background(),
 		bson.A{
 			bson.M{
@@ -127,10 +140,13 @@ func (s *RegBox) Check(login []byte) error {
 	}
 }
 
-func (s *RegBox) Authenticate(ctx context.Context, in *AcccountRequest) (*Response, error) {
+func (s *RegBoxServer) Authenticate(ctx context.Context, in *pb.AcccountRequest) (*pb.AcccountResponse, error) {
 	var login = []byte(in.GetLogin())
 	if s.Check(login) != ErrLoginUsed {
-		return &Response{Error: "Login not found"}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: "Login not found",
+		}, nil
 	}
 
 	cursor, err := s.Collection.Find(context.Background(),
@@ -146,7 +162,10 @@ func (s *RegBox) Authenticate(ctx context.Context, in *AcccountRequest) (*Respon
 		),
 	)
 	if err != nil {
-		return &Response{Error: err.Error()}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: err.Error(),
+		}, nil
 	}
 
 	_ = cursor.Next(context.Background())
@@ -154,13 +173,22 @@ func (s *RegBox) Authenticate(ctx context.Context, in *AcccountRequest) (*Respon
 	var response map[string][]byte
 	err = cursor.Decode(&response)
 	if err != nil {
-		return &Response{Error: err.Error()}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: err.Error(),
+		}, nil
 	}
 
 	var hash = s.GenerateHash([]byte(in.GetPassword()), response["salt"])
 	if !bytes.Equal(hash, response["passwd"]) {
-		return &Response{Error: "Passwords do not match"}, nil
+		return &pb.AcccountResponse{
+			Login: "",
+			Error: "Passwords do not match",
+		}, nil
 	}
 
-	return &Response{}, nil
+	return &pb.AcccountResponse{
+		Login: in.GetLogin(),
+		Error: "",
+	}, nil
 }
