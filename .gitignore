@@ -1,4 +1,3 @@
 bin/
-**/*.pb.go
-**/*-packr.go
 .vscode/
+**/*.pb.go

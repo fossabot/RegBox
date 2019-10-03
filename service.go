@@ -1,194 +1,59 @@
 package main
 
-import (
-	"bytes"
-	"context"
-	"crypto/rand"
-	"errors"
-	"io"
+import "errors"
 
-	"github.com/Aded175/RegBox/pb"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/argon2"
-)
-
-type RegBoxServer struct {
-	Memory      uint32
-	Iterations  uint32
-	Parallelism uint8
-	SaltLength  uint32
-	KeyLength   uint32
-	Address     string
-	Collection  *mongo.Collection
+type RegBoxService interface {
+	Register(string, string) (string, error)
+	Authenticate(string, string) (string, error)
 }
 
-func NewRegBoxServer() (*RegBoxServer, error) {
-	conn, err := mongo.Connect(
-		context.Background(),
-		options.Client().SetHosts([]string{"127.0.0.1:27017"}).
-			SetAuth(options.Credential{
-				AuthSource: "regbox",
-				Username:   "regbox",
-				Password:   "P@ssw0rd",
-			}))
+type regBoxService struct {
+	repo   *repositoryService
+	crypto *cryptoService
+}
+
+func NewRegBoxService() (*regBoxService, error) {
+	r, err := NewRepositoryService()
 	if err != nil {
 		return nil, err
 	}
-	return &RegBoxServer{
-		Memory:      64 * 1024, // 64 Mib
-		Iterations:  10,
-		Parallelism: 4,
-		SaltLength:  16,
-		KeyLength:   32,
-		Address:     "0.0.0.0:23400",
-		Collection:  conn.Database("regbox").Collection("creds"),
-	}, nil
-}
-
-func generateRandomBytes(n uint32) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
+	c, err := NewCryptoService()
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
-}
-
-func (s *RegBoxServer) GenerateHash(password []byte, salt []byte) []byte {
-	return argon2.IDKey(password, salt, s.Iterations, s.Memory, s.Parallelism, s.KeyLength)
-}
-
-func (s *RegBoxServer) Register(ctx context.Context, in *pb.AcccountRequest) (*pb.AcccountResponse, error) {
-	var login = []byte(in.GetLogin())
-	if err := s.Check(login); err != nil {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: err.Error(),
-		}, nil
-	}
-
-	salt, err := generateRandomBytes(s.SaltLength)
-	if err != nil {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: err.Error(),
-		}, nil
-	}
-	var hash = s.GenerateHash([]byte(in.GetPassword()), salt)
-
-	_, err = s.Collection.InsertOne(
-		context.Background(),
-		bson.M{"login": login,
-			"passwd": hash,
-			"salt":   salt,
-		})
-	if err != nil {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: err.Error(),
-		}, nil
-	}
-	return &pb.AcccountResponse{
-		Login: in.GetLogin(),
-		Error: "",
+	return &regBoxService{
+		repo:   r,
+		crypto: c,
 	}, nil
 }
 
 var (
-	ErrLoginUsed = errors.New("Login is used")
-	ErrDupLogins = errors.New("Duplicated logins")
+	ErrLoginUsed = errors.New("Login already used")
 )
 
-func (s *RegBoxServer) Check(login []byte) error {
-	cursor, err := s.Collection.Aggregate(context.Background(),
-		bson.A{
-			bson.M{
-				"$match": bson.M{
-					"login": bson.M{
-						"$eq": login,
-					},
-				},
-			},
-			bson.M{
-				"$count": "logins",
-			},
-		},
-	)
+func (s regBoxService) Register(l string, p string) (created string, err error) {
+	var login = []byte(l)
+	var password = []byte(p)
+
+	n, err := s.repo.CountLogins(login)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	_ = cursor.Next(context.Background())
-
-	var count map[string]int
-	err = cursor.Decode(&count)
-	if err == io.EOF {
-		// Cursor empty == login free
-		return nil
+	if n != 0 {
+		return "", ErrLoginUsed
 	}
+	salt, err := s.crypto.GenerateSalt()
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	switch count["logins"] {
-	case 1:
-		return ErrLoginUsed
-	default:
-		return ErrDupLogins
+	var hash = s.crypto.GenerateHash(password, salt)
+	err = s.repo.AddAccount(login, hash, salt)
+	if err != nil {
+		return "", err
 	}
+	return l, nil
 }
 
-func (s *RegBoxServer) Authenticate(ctx context.Context, in *pb.AcccountRequest) (*pb.AcccountResponse, error) {
-	var login = []byte(in.GetLogin())
-	if s.Check(login) != ErrLoginUsed {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: "Login not found",
-		}, nil
-	}
-
-	cursor, err := s.Collection.Find(context.Background(),
-		bson.M{
-			"login": login,
-		},
-		options.Find().SetProjection(
-			bson.M{
-				"_id":    0,
-				"passwd": 1,
-				"salt":   1,
-			},
-		),
-	)
-	if err != nil {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: err.Error(),
-		}, nil
-	}
-
-	_ = cursor.Next(context.Background())
-
-	var response map[string][]byte
-	err = cursor.Decode(&response)
-	if err != nil {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: err.Error(),
-		}, nil
-	}
-
-	var hash = s.GenerateHash([]byte(in.GetPassword()), response["salt"])
-	if !bytes.Equal(hash, response["passwd"]) {
-		return &pb.AcccountResponse{
-			Login: "",
-			Error: "Passwords do not match",
-		}, nil
-	}
-
-	return &pb.AcccountResponse{
-		Login: in.GetLogin(),
-		Error: "",
-	}, nil
+func (s regBoxService) Authenticate(login string, password string) (auth string, err error) {
+	panic("not implemented rpc method")
 }
