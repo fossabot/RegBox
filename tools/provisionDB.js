@@ -32,3 +32,13 @@ db.createCollection("creds", {
         }
     }
 })
+
+db.creds.createIndex(
+    {
+        "login": 1
+    },
+    {
+        "name": "uniqueLoginIndex",
+        "unique": true
+    }
+)

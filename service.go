@@ -8,12 +8,12 @@ type RegBoxService interface {
 }
 
 type regBoxService struct {
-	repo   *repositoryService
+	repo   *accountRepositoryService
 	crypto *cryptoService
 }
 
 func NewRegBoxService() (*regBoxService, error) {
-	r, err := NewRepositoryService()
+	r, err := NewAccountRepositoryService()
 	if err != nil {
 		return nil, err
 	}
@@ -31,17 +31,10 @@ var (
 	ErrLoginUsed = errors.New("Login already used")
 )
 
-func (s regBoxService) Register(l string, p string) (created string, err error) {
+func (s regBoxService) Register(l string, p string) (string, error) {
 	var login = []byte(l)
 	var password = []byte(p)
 
-	n, err := s.repo.CountLogins(login)
-	if err != nil {
-		return "", err
-	}
-	if n != 0 {
-		return "", ErrLoginUsed
-	}
 	salt, err := s.crypto.GenerateSalt()
 	if err != nil {
 		return "", err
