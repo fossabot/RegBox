@@ -22,7 +22,7 @@ func NewGRPCServer(endpoints Endpoints) pb.RegBoxServer {
 		authenticate: grpckit.NewServer(
 			endpoints.Authenticate,
 			decodeAcccountRequest,
-			encodeAccountResponse,
+			encodeTokenResponse,
 		),
 	}
 }
@@ -35,10 +35,10 @@ func (s *GRPCServer) Register(ctx context.Context, req *pb.AcccountRequest) (*pb
 	return resp.(*pb.AcccountResponse), nil
 }
 
-func (s *GRPCServer) Authenticate(ctx context.Context, req *pb.AcccountRequest) (*pb.AcccountResponse, error) {
+func (s *GRPCServer) Authenticate(ctx context.Context, req *pb.AcccountRequest) (*pb.TokenResponse, error) {
 	_, resp, err := s.authenticate.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return resp.(*pb.AcccountResponse), nil
+	return resp.(*pb.TokenResponse), nil
 }

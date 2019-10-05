@@ -4,7 +4,7 @@ option go_package = "pb";
 
 service RegBox {
     rpc Register(AcccountRequest) returns (AcccountResponse);
-    rpc Authenticate(AcccountRequest) returns (AcccountResponse);
+    rpc Authenticate(AcccountRequest) returns (TokenResponse);
 }
 
 message AcccountRequest {
@@ -15,4 +15,10 @@ message AcccountRequest {
 message AcccountResponse {
     string login = 1;
     string error = 2;
+}
+
+message TokenResponse {
+    string accessToken = 1;
+    string refreshToken = 2;
+    string error = 3;
 }

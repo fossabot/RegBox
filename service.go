@@ -1,52 +1,43 @@
 package main
 
-import "errors"
+import "go.mongodb.org/mongo-driver/mongo"
 
 type RegBoxService interface {
 	Register(string, string) (string, error)
-	Authenticate(string, string) (string, error)
+	Authenticate(string, string) (string, string, error)
 }
 
 type regBoxService struct {
-	repo   *accountRepositoryService
+	stor   *storageService
 	crypto *cryptoService
 }
 
-func NewRegBoxService() (*regBoxService, error) {
-	r, err := NewAccountRepositoryService()
-	if err != nil {
-		return nil, err
-	}
+func NewRegBoxService(conn *mongo.Client) (*regBoxService, error) {
+	var s = NewStorageService(conn)
 	c, err := NewCryptoService()
 	if err != nil {
 		return nil, err
 	}
 	return &regBoxService{
-		repo:   r,
+		stor:   s,
 		crypto: c,
 	}, nil
 }
 
-var (
-	ErrLoginUsed = errors.New("Login already used")
-)
-
-func (s regBoxService) Register(l string, p string) (string, error) {
-	var login = []byte(l)
-	var password = []byte(p)
-
+func (s regBoxService) Register(login string, password string) (string, error) {
 	salt, err := s.crypto.GenerateSalt()
 	if err != nil {
 		return "", err
 	}
-	var hash = s.crypto.GenerateHash(password, salt)
-	err = s.repo.AddAccount(login, hash, salt)
+	var hash = s.crypto.GenerateHash([]byte(password), salt)
+
+	err = s.stor.AddAccount([]byte(login), hash, salt)
 	if err != nil {
 		return "", err
 	}
-	return l, nil
+	return login, nil
 }
 
-func (s regBoxService) Authenticate(login string, password string) (auth string, err error) {
+func (s regBoxService) Authenticate(login string, password string) (string, string, error) {
 	panic("not implemented rpc method")
 }

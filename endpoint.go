@@ -19,7 +19,13 @@ type AccountRequest struct {
 
 type AcccountResponse struct {
 	login string
-	err   string
+	err   error
+}
+
+type TokenResponse struct {
+	accessToken  string
+	refreshToken string
+	err          error
 }
 
 func makeRegisterEndpoint(svc RegBoxService) endpoint.Endpoint {
@@ -28,7 +34,7 @@ func makeRegisterEndpoint(svc RegBoxService) endpoint.Endpoint {
 		login, err := svc.Register(request.login, request.password)
 		return AcccountResponse{
 			login: login,
-			err:   err2str(err),
+			err:   err,
 		}, nil
 	}
 }
@@ -45,19 +51,29 @@ func encodeAccountResponse(_ context.Context, r interface{}) (interface{}, error
 	var req = r.(AcccountResponse)
 	return &pb.AcccountResponse{
 		Login: req.login,
-		Error: req.err,
+		Error: err2str(req.err),
 	}, nil
 }
 
 func makeAuthenticateEndpoint(svc RegBoxService) endpoint.Endpoint {
 	return func(ctx context.Context, req interface{}) (interface{}, error) {
 		var request = req.(AccountRequest)
-		login, err := svc.Authenticate(request.login, request.password)
-		return AcccountResponse{
-			login: login,
-			err:   err2str(err),
+		at, rt, err := svc.Authenticate(request.login, request.password)
+		return TokenResponse{
+			accessToken:  at,
+			refreshToken: rt,
+			err:          err,
 		}, nil
 	}
+}
+
+func encodeTokenResponse(_ context.Context, r interface{}) (interface{}, error) {
+	var req = r.(TokenResponse)
+	return &pb.TokenResponse{
+		AccessToken:  req.accessToken,
+		RefreshToken: req.refreshToken,
+		Error:        err2str(req.err),
+	}, nil
 }
 
 func err2str(err error) string {
