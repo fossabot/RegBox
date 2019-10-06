@@ -5,11 +5,13 @@ import (
 
 	"github.com/Aded175/RegBox/pb"
 	"github.com/go-kit/kit/endpoint"
+	"github.com/google/uuid"
 )
 
 type Endpoints struct {
 	Register     endpoint.Endpoint
 	Authenticate endpoint.Endpoint
+	Refresh      endpoint.Endpoint
 }
 
 type AccountRequest struct {
@@ -26,6 +28,11 @@ type TokenResponse struct {
 	accessToken  string
 	refreshToken string
 	err          error
+}
+
+type TokenRequest struct {
+	uuid         string
+	refreshToken string
 }
 
 func makeRegisterEndpoint(svc RegBoxService) endpoint.Endpoint {
@@ -81,4 +88,28 @@ func err2str(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func decodeTokenRequest(_ context.Context, r interface{}) (interface{}, error) {
+	var req = r.(*pb.TokenRequest)
+	return TokenRequest{
+		uuid:         req.GetUuid(),
+		refreshToken: req.GetRefreshToken(),
+	}, nil
+}
+
+func makeRefreshEndpoint(svc RegBoxService) endpoint.Endpoint {
+	return func(ctx context.Context, req interface{}) (interface{}, error) {
+		var request = req.(TokenRequest)
+		id, err := uuid.Parse(request.uuid)
+		if err != nil {
+			return nil, err
+		}
+		at, rt, err := svc.Refresh(id, request.refreshToken)
+		return TokenResponse{
+			accessToken:  at,
+			refreshToken: rt,
+			err:          err,
+		}, nil
+	}
 }

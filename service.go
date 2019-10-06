@@ -14,6 +14,7 @@ import (
 type RegBoxService interface {
 	Register(string, string) (string, error)
 	Authenticate(string, string) (string, string, error)
+	Refresh(uuid.UUID, string) (string, string, error)
 }
 
 type regBoxService struct {
@@ -112,4 +113,8 @@ func generateToken(id uuid.UUID, login string, now, expire time.Time) (*Token, e
 		expire: expire,
 		ss:     ss,
 	}, nil
+}
+
+func (s regBoxService) Refresh(uuid.UUID, string) (string, string, error) {
+	panic("Not implemented method")
 }

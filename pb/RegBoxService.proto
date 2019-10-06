@@ -5,6 +5,7 @@ option go_package = "pb";
 service RegBox {
     rpc Register(AcccountRequest) returns (AcccountResponse);
     rpc Authenticate(AcccountRequest) returns (TokenResponse);
+    rpc Refresh(TokenRequest) returns (TokenResponse);
 }
 
 message AcccountRequest {
@@ -21,4 +22,9 @@ message TokenResponse {
     string accessToken = 1;
     string refreshToken = 2;
     string error = 3;
+}
+
+message TokenRequest {
+    string uuid = 1;
+    string refreshToken = 2;
 }

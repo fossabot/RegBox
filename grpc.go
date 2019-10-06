@@ -10,6 +10,7 @@ import (
 type GRPCServer struct {
 	register     grpckit.Handler
 	authenticate grpckit.Handler
+	refresh      grpckit.Handler
 }
 
 func NewGRPCServer(endpoints Endpoints) pb.RegBoxServer {
@@ -22,6 +23,11 @@ func NewGRPCServer(endpoints Endpoints) pb.RegBoxServer {
 		authenticate: grpckit.NewServer(
 			endpoints.Authenticate,
 			decodeAcccountRequest,
+			encodeTokenResponse,
+		),
+		refresh: grpckit.NewServer(
+			endpoints.Refresh,
+			decodeTokenRequest,
 			encodeTokenResponse,
 		),
 	}
@@ -37,6 +43,14 @@ func (s *GRPCServer) Register(ctx context.Context, req *pb.AcccountRequest) (*pb
 
 func (s *GRPCServer) Authenticate(ctx context.Context, req *pb.AcccountRequest) (*pb.TokenResponse, error) {
 	_, resp, err := s.authenticate.ServeGRPC(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*pb.TokenResponse), nil
+}
+
+func (s *GRPCServer) Refresh(ctx context.Context, req *pb.TokenRequest) (*pb.TokenResponse, error) {
+	_, resp, err := s.refresh.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err
 	}

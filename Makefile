@@ -2,10 +2,13 @@ PROJECTNAME	:=	regboxd
 GOBIN		:=	$(shell pwd)/bin
 LDFLAGS		:=	-ldflags "-s -w"
 
-.PHONY: build clean mongo
+.PHONY: build clean
 
 build: pb/RegBoxService.pb.go
 	go build $(LDFLAGS) -o $(GOBIN)/$(PROJECTNAME) 
+
+clean:
+	rm -f $(GOBIN)/$(PROJECTNAME)
 
 pb/RegBoxService.pb.go: pb/RegBoxService.proto
 	protoc --go_out=plugins=grpc:pb/ -I pb/ RegBoxService.proto
@@ -18,9 +21,3 @@ assets/regbox.crt: assets/regbox.key
 
 assets/regbox.key:
 	@openssl genrsa -out $@ 4096
-
-clean:
-	rm -f $(GOBIN)/$(PROJECTNAME)
-	
-mongo:
-	docker build -t mongo-regbox .
